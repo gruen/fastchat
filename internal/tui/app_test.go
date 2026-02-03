@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mg/ai-tui/internal/config"
+	"github.com/mg/ai-tui/internal/llm"
 )
 
 // Helper function to create a minimal test config
@@ -20,7 +21,7 @@ func testConfig() *config.Config {
 }
 
 func TestNewAppModel_StartsInComposeView(t *testing.T) {
-	m := NewAppModel(testConfig(), nil, nil)
+	m := NewAppModel(testConfig(), nil, map[string]llm.Provider{})
 
 	if m.activeView != ComposeView {
 		t.Errorf("expected activeView to be ComposeView, got %v", m.activeView)
@@ -28,7 +29,7 @@ func TestNewAppModel_StartsInComposeView(t *testing.T) {
 }
 
 func TestAppModel_CtrlD_SetsQuittingAndReturnsQuit(t *testing.T) {
-	m := NewAppModel(testConfig(), nil, nil)
+	m := NewAppModel(testConfig(), nil, map[string]llm.Provider{})
 
 	// Send ctrl+d
 	msg := tea.KeyMsg{Type: tea.KeyCtrlD}
@@ -50,7 +51,7 @@ func TestAppModel_CtrlD_SetsQuittingAndReturnsQuit(t *testing.T) {
 }
 
 func TestAppModel_CtrlH_SwitchesToHistoryView(t *testing.T) {
-	m := NewAppModel(testConfig(), nil, nil)
+	m := NewAppModel(testConfig(), nil, map[string]llm.Provider{})
 
 	// Verify we start in ComposeView
 	if m.activeView != ComposeView {
@@ -72,7 +73,7 @@ func TestAppModel_CtrlH_SwitchesToHistoryView(t *testing.T) {
 }
 
 func TestAppModel_CtrlN_SwitchesToComposeView(t *testing.T) {
-	m := NewAppModel(testConfig(), nil, nil)
+	m := NewAppModel(testConfig(), nil, map[string]llm.Provider{})
 
 	// First switch to HistoryView
 	msg := tea.KeyMsg{Type: tea.KeyCtrlH}
@@ -99,7 +100,7 @@ func TestAppModel_CtrlN_SwitchesToComposeView(t *testing.T) {
 }
 
 func TestAppModel_WindowSizeMsg_UpdatesDimensions(t *testing.T) {
-	m := NewAppModel(testConfig(), nil, nil)
+	m := NewAppModel(testConfig(), nil, map[string]llm.Provider{})
 
 	// Send window size message
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}

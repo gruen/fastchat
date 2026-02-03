@@ -41,7 +41,7 @@ type AppModel struct {
 func NewAppModel(cfg *config.Config, database *db.DB, providers map[string]llm.Provider) AppModel {
 	return AppModel{
 		activeView: ComposeView,
-		compose:    compose.New(),
+		compose:    compose.New(database, providers[cfg.DefaultProvider]),
 		history:    history.New(),
 		cfg:        cfg,
 		db:         database,
@@ -53,6 +53,7 @@ func NewAppModel(cfg *config.Config, database *db.DB, providers map[string]llm.P
 // SetProgram sets the tea.Program reference for sending messages
 func (m *AppModel) SetProgram(p *tea.Program) {
 	m.program = p
+	m.compose.SetProgram(p)
 }
 
 // Init initializes the application
@@ -87,7 +88,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, GlobalKeys.NewChat):
 			m.activeView = ComposeView
-			m.compose = compose.New()
+			m.compose = compose.New(m.db, m.providers[m.cfg.DefaultProvider])
+			m.compose.SetProgram(m.program)
 			m.compose.SetSize(m.width, m.height-2)
 			return m, nil
 
