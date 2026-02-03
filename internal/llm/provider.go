@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/mg/ai-tui/internal/config"
@@ -45,6 +46,7 @@ func BuildProviders(providers map[string]config.Provider) map[string]Provider {
 				model:        cfg.Model,
 				systemPrompt: cfg.SystemPrompt,
 				maxTokens:    cfg.MaxTokens,
+				client:       &http.Client{},
 			}
 		} else {
 			result[name] = &openaiProvider{
@@ -54,15 +56,14 @@ func BuildProviders(providers map[string]config.Provider) map[string]Provider {
 				model:        cfg.Model,
 				systemPrompt: cfg.SystemPrompt,
 				maxTokens:    cfg.MaxTokens,
+				client:       &http.Client{},
 			}
 		}
 	}
 	return result
 }
 
-// These will be moved to their own files (claude.go, openai.go) in later tasks.
-// For now they exist so BuildProviders compiles.
-
+// claudeProvider stub - will be implemented in claude.go by the other agent
 type claudeProvider struct {
 	name         string
 	apiKey       string
@@ -70,6 +71,7 @@ type claudeProvider struct {
 	model        string
 	systemPrompt string
 	maxTokens    int
+	client       *http.Client
 }
 
 func (p *claudeProvider) Stream(ctx context.Context, messages []ChatMessage) (<-chan StreamChunk, error) {
@@ -77,22 +79,5 @@ func (p *claudeProvider) Stream(ctx context.Context, messages []ChatMessage) (<-
 }
 
 func (p *claudeProvider) Name() string {
-	return p.name
-}
-
-type openaiProvider struct {
-	name         string
-	apiKey       string
-	baseURL      string
-	model        string
-	systemPrompt string
-	maxTokens    int
-}
-
-func (p *openaiProvider) Stream(ctx context.Context, messages []ChatMessage) (<-chan StreamChunk, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *openaiProvider) Name() string {
 	return p.name
 }
