@@ -42,7 +42,7 @@ func NewAppModel(cfg *config.Config, database *db.DB, providers map[string]llm.P
 	return AppModel{
 		activeView: ComposeView,
 		compose:    compose.New(database, providers[cfg.DefaultProvider]),
-		history:    history.New(),
+		history:    history.New(database, cfg.Storage.NotesDir),
 		cfg:        cfg,
 		db:         database,
 		providers:  providers,
@@ -64,6 +64,10 @@ func (m AppModel) Init() tea.Cmd {
 // Update handles all messages for the root model
 func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case history.ResumeSessionMsg:
+		m.activeView = ComposeView
+		return m, nil
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -84,7 +88,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, GlobalKeys.History):
 			m.activeView = HistoryView
-			return m, nil
+			cmd := m.history.Init()
+			return m, cmd
 
 		case key.Matches(msg, GlobalKeys.NewChat):
 			m.activeView = ComposeView
