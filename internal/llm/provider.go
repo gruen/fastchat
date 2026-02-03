@@ -2,7 +2,6 @@ package llm
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -61,23 +60,4 @@ func BuildProviders(providers map[string]config.Provider) map[string]Provider {
 		}
 	}
 	return result
-}
-
-// claudeProvider stub - will be implemented in claude.go by the other agent
-type claudeProvider struct {
-	name         string
-	apiKey       string
-	baseURL      string
-	model        string
-	systemPrompt string
-	maxTokens    int
-	client       *http.Client
-}
-
-func (p *claudeProvider) Stream(ctx context.Context, messages []ChatMessage) (<-chan StreamChunk, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *claudeProvider) Name() string {
-	return p.name
 }
