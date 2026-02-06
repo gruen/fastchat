@@ -24,29 +24,31 @@ const (
 
 // AppModel is the root model for the TUI application
 type AppModel struct {
-	activeView View
-	compose    compose.Model
-	history    history.Model
-	cfg        *config.Config
-	db         *db.DB
-	providers  map[string]llm.Provider
-	width      int
-	height     int
-	quitting   bool
-	program    *tea.Program
-	help       help.Model
+	activeView     View
+	activeProvider string
+	compose        compose.Model
+	history        history.Model
+	cfg            *config.Config
+	db             *db.DB
+	providers      map[string]llm.Provider
+	width          int
+	height         int
+	quitting       bool
+	program        *tea.Program
+	help           help.Model
 }
 
 // NewAppModel creates a new root application model
 func NewAppModel(cfg *config.Config, database *db.DB, providers map[string]llm.Provider) AppModel {
 	return AppModel{
-		activeView: ComposeView,
-		compose:    compose.New(database, providers[cfg.DefaultProvider]),
-		history:    history.New(database, cfg.Storage.NotesDir),
-		cfg:        cfg,
-		db:         database,
-		providers:  providers,
-		help:       help.New(),
+		activeView:     ComposeView,
+		activeProvider: cfg.DefaultProvider,
+		compose:        compose.New(database, providers[cfg.DefaultProvider]),
+		history:        history.New(database, cfg.Storage.NotesDir),
+		cfg:            cfg,
+		db:             database,
+		providers:      providers,
+		help:           help.New(),
 	}
 }
 
@@ -54,6 +56,18 @@ func NewAppModel(cfg *config.Config, database *db.DB, providers map[string]llm.P
 func (m *AppModel) SetProgram(p *tea.Program) {
 	m.program = p
 	m.compose.SetProgram(p)
+}
+
+// ActiveProvider returns the currently active provider name
+func (m *AppModel) ActiveProvider() string {
+	return m.activeProvider
+}
+
+// SetActiveProvider updates the active provider if it exists in the providers map
+func (m *AppModel) SetActiveProvider(name string) {
+	if _, ok := m.providers[name]; ok {
+		m.activeProvider = name
+	}
 }
 
 // Init initializes the application
@@ -93,7 +107,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, GlobalKeys.NewChat):
 			m.activeView = ComposeView
-			m.compose = compose.New(m.db, m.providers[m.cfg.DefaultProvider])
+			m.compose = compose.New(m.db, m.providers[m.activeProvider])
 			m.compose.SetProgram(m.program)
 			m.compose.SetSize(m.width, m.height-2)
 			return m, nil
@@ -136,13 +150,13 @@ func (m AppModel) View() string {
 		content = m.history.View()
 	}
 
-	// Build status bar
-	providerName := m.cfg.DefaultProvider
+	// Build status bar with active provider and model
+	providerName := m.activeProvider
 	modelName := ""
 	if provider, ok := m.cfg.Providers[providerName]; ok {
 		modelName = provider.Model
 	}
-	statusBar := StatusBarStyle.Render(fmt.Sprintf("Provider: %s | Model: %s", providerName, modelName))
+	statusBar := StatusBarStyle.Render(fmt.Sprintf("%s > %s", providerName, modelName))
 
 	// Build help bar
 	helpView := m.help.ShortHelpView(GlobalKeys.ShortHelp())
