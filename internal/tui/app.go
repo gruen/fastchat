@@ -12,6 +12,7 @@ import (
 	"github.com/mg/ai-tui/internal/llm"
 	"github.com/mg/ai-tui/internal/tui/compose"
 	"github.com/mg/ai-tui/internal/tui/history"
+	"github.com/mg/ai-tui/internal/tui/selector"
 )
 
 // View represents the currently active view
@@ -28,6 +29,7 @@ type AppModel struct {
 	activeProvider string
 	compose        compose.Model
 	history        history.Model
+	selector       selector.Model
 	cfg            *config.Config
 	db             *db.DB
 	providers      map[string]llm.Provider
@@ -45,6 +47,7 @@ func NewAppModel(cfg *config.Config, database *db.DB, providers map[string]llm.P
 		activeProvider: cfg.DefaultProvider,
 		compose:        compose.New(database, providers[cfg.DefaultProvider]),
 		history:        history.New(database, cfg.Storage.NotesDir),
+		selector:       selector.New(cfg.Providers),
 		cfg:            cfg,
 		db:             database,
 		providers:      providers,
@@ -82,6 +85,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.activeView = ComposeView
 		return m, nil
 
+	case selector.ModelSelectedMsg:
+		m.activeProvider = msg.ProviderName
+		m.activeView = ComposeView
+		m.compose = compose.New(m.db, m.providers[m.activeProvider])
+		m.compose.SetProgram(m.program)
+		m.compose.SetSize(m.width, m.height-2)
+		return m, nil
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -90,15 +101,27 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		contentHeight := msg.Height - 2
 		m.compose.SetSize(msg.Width, contentHeight)
 		m.history.SetSize(msg.Width, contentHeight)
+		m.selector.SetSize(msg.Width, contentHeight)
 
 		return m, nil
 
 	case tea.KeyMsg:
+		// When selector is active, route all keys to it
+		if m.selector.IsActive() {
+			var cmd tea.Cmd
+			m.selector, cmd = m.selector.Update(msg)
+			return m, cmd
+		}
+
 		// Handle global key bindings
 		switch {
 		case key.Matches(msg, GlobalKeys.Quit):
 			m.quitting = true
 			return m, tea.Quit
+
+		case key.Matches(msg, GlobalKeys.ModelSelect):
+			m.selector.Toggle()
+			return m, nil
 
 		case key.Matches(msg, GlobalKeys.History):
 			m.activeView = HistoryView
@@ -140,6 +163,19 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m AppModel) View() string {
 	if m.quitting {
 		return ""
+	}
+
+	// If selector is active, show it instead of the normal view
+	if m.selector.IsActive() {
+		content := m.selector.View()
+		providerName := m.activeProvider
+		modelName := ""
+		if provider, ok := m.cfg.Providers[providerName]; ok {
+			modelName = provider.Model
+		}
+		statusBar := StatusBarStyle.Render(fmt.Sprintf("%s > %s", providerName, modelName))
+		helpBar := HelpBarStyle.Render("/ filter  enter select  esc close")
+		return strings.Join([]string{content, statusBar, helpBar}, "\n")
 	}
 
 	var content string
