@@ -67,6 +67,49 @@ func (m *Model) SetProgram(p *tea.Program) {
 	m.program = p
 }
 
+// SetProvider binds compose to a specific LLM provider. Used when resuming a
+// past session so follow-up messages use the session's original provider
+// rather than whichever provider is currently active.
+func (m *Model) SetProvider(p llm.Provider) {
+	m.provider = p
+}
+
+// LoadSession loads an existing session and its messages into the compose view,
+// replacing any current conversation. It resets streaming state and re-renders
+// the viewport so the prior conversation is visible immediately. Subsequent
+// sent messages persist to the loaded session id (no new sessions row).
+func (m *Model) LoadSession(session *db.Session, messages []db.Message) {
+	m.session = session
+	m.messages = make([]DisplayMessage, 0, len(messages))
+	for _, msg := range messages {
+		m.messages = append(m.messages, DisplayMessage{Role: msg.Role, Content: msg.Content})
+	}
+	m.streaming = false
+	m.streamBuf.Reset()
+	m.cancelFn = nil
+	m.err = nil
+	m.textarea.Reset()
+	m.updateViewport()
+}
+
+// SessionID returns the id of the loaded session, or "" if none is loaded.
+func (m Model) SessionID() string {
+	if m.session == nil {
+		return ""
+	}
+	return m.session.ID
+}
+
+// MessageCount returns the number of messages currently in the conversation.
+func (m Model) MessageCount() int {
+	return len(m.messages)
+}
+
+// Provider returns the provider bound to the compose view, or nil if none.
+func (m Model) Provider() llm.Provider {
+	return m.provider
+}
+
 // SetSize updates the dimensions of the compose view.
 func (m *Model) SetSize(w, h int) {
 	m.width = w

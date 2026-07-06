@@ -82,6 +82,15 @@ func (m AppModel) Init() tea.Cmd {
 func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case history.ResumeSessionMsg:
+		// Bind compose to the session's ORIGINAL provider (not the currently
+		// active one) so follow-up messages use the same backend.
+		if p, ok := m.providers[msg.Session.Provider]; ok {
+			m.compose.SetProvider(p)
+			m.SetActiveProvider(msg.Session.Provider)
+		}
+		// Load the session + messages into the EXISTING compose instance. Do
+		// NOT rebuild it with compose.New or the loaded state is dropped.
+		m.compose.LoadSession(&msg.Session, msg.Messages)
 		m.activeView = ComposeView
 		return m, nil
 

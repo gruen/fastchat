@@ -1,12 +1,26 @@
 package tui
 
 import (
+	"context"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mg/ai-tui/internal/config"
+	"github.com/mg/ai-tui/internal/db"
 	"github.com/mg/ai-tui/internal/llm"
+	"github.com/mg/ai-tui/internal/tui/history"
 )
+
+// fakeProvider is a stub llm.Provider used only for testing provider binding.
+type fakeProvider struct {
+	name string
+}
+
+func (f *fakeProvider) Stream(ctx context.Context, messages []llm.ChatMessage) (<-chan llm.StreamChunk, error) {
+	return nil, nil
+}
+
+func (f *fakeProvider) Name() string { return f.name }
 
 // Helper function to create a minimal test config
 func testConfig() *config.Config {
@@ -117,5 +131,76 @@ func TestAppModel_WindowSizeMsg_UpdatesDimensions(t *testing.T) {
 
 	if updated.height != 40 {
 		t.Errorf("expected height to be 40, got %d", updated.height)
+	}
+}
+
+func TestAppModel_ResumeSessionMsg_LoadsMessagesIntoCompose(t *testing.T) {
+	m := NewAppModel(testConfig(), nil, map[string]llm.Provider{})
+
+	msgs := []db.Message{
+		{SessionID: "abc", Role: "user", Content: "Hello"},
+		{SessionID: "abc", Role: "assistant", Content: "Hi there"},
+		{SessionID: "abc", Role: "user", Content: "How are you?"},
+	}
+	session := db.Session{ID: "abc", Provider: "test"}
+
+	updatedModel, _ := m.Update(history.ResumeSessionMsg{Session: session, Messages: msgs})
+	updated, ok := updatedModel.(AppModel)
+	if !ok {
+		t.Fatal("Update did not return AppModel")
+	}
+
+	if updated.activeView != ComposeView {
+		t.Errorf("expected activeView to be ComposeView, got %v", updated.activeView)
+	}
+	if updated.compose.SessionID() != "abc" {
+		t.Errorf("expected compose session id 'abc', got %q", updated.compose.SessionID())
+	}
+	if got := updated.compose.MessageCount(); got != 3 {
+		t.Errorf("expected compose to show 3 messages, got %d", got)
+	}
+}
+
+func TestAppModel_ResumeSessionMsg_BindsSessionProvider(t *testing.T) {
+	openaiProv := &fakeProvider{name: "openai"}
+	anthropicProv := &fakeProvider{name: "anthropic"}
+	providers := map[string]llm.Provider{
+		"openai":    openaiProv,
+		"anthropic": anthropicProv,
+	}
+	cfg := &config.Config{
+		DefaultProvider: "anthropic",
+		Providers: map[string]config.Provider{
+			"openai":    {Model: "gpt-4"},
+			"anthropic": {Model: "claude-3"},
+		},
+	}
+
+	m := NewAppModel(cfg, nil, providers)
+
+	// Sanity: compose starts bound to the active (anthropic) provider.
+	if m.compose.Provider() == nil || m.compose.Provider().Name() != "anthropic" {
+		t.Fatalf("expected initial provider 'anthropic', got %v", m.compose.Provider())
+	}
+
+	// Resume a session that originally used openai while the active provider
+	// is anthropic. Compose must be rebound to the session's original provider.
+	session := db.Session{ID: "sess-oai", Provider: "openai"}
+	updatedModel, _ := m.Update(history.ResumeSessionMsg{Session: session, Messages: nil})
+	updated, ok := updatedModel.(AppModel)
+	if !ok {
+		t.Fatal("Update did not return AppModel")
+	}
+
+	if updated.compose.Provider() == nil {
+		t.Fatal("expected compose to have a bound provider")
+	}
+	if updated.compose.Provider().Name() != "openai" {
+		t.Errorf("expected compose bound to session's provider 'openai', got %q",
+			updated.compose.Provider().Name())
+	}
+	// Active provider follows the resumed session so the status bar is consistent.
+	if updated.ActiveProvider() != "openai" {
+		t.Errorf("expected active provider 'openai', got %q", updated.ActiveProvider())
 	}
 }
