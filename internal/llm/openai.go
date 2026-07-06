@@ -23,6 +23,10 @@ func (p *openaiProvider) Name() string {
 	return p.name
 }
 
+func (p *openaiProvider) Model() string {
+	return p.model
+}
+
 func (p *openaiProvider) Stream(ctx context.Context, messages []ChatMessage) (<-chan StreamChunk, error) {
 	// Build the request body
 	reqMessages := make([]ChatMessage, 0, len(messages)+1)

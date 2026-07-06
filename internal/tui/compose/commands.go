@@ -43,6 +43,7 @@ func createSessionCmd(database *db.DB, provider llm.Provider) tea.Cmd {
 		s := &db.Session{
 			ID:        newUUID(),
 			Provider:  provider.Name(),
+			Model:     provider.Model(),
 			CreatedAt: now,
 			UpdatedAt: now,
 		}

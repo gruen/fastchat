@@ -1,6 +1,7 @@
 package history
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -64,5 +65,31 @@ func TestSessionArchivedMsg(t *testing.T) {
 	m, _ = m.Update(SessionArchivedMsg{SessionID: "123"})
 	if m.statusMsg == "" {
 		t.Error("statusMsg should be set after archive")
+	}
+}
+
+// TestSessionItemDescription_ShowsModel proves the history list description
+// renders the model name (no blank middle field) once a session's Model is
+// populated — the symptom of the empty-model bug.
+func TestSessionItemDescription_ShowsModel(t *testing.T) {
+	session := db.Session{
+		ID:        "1",
+		Title:     "First",
+		Provider:  "claude",
+		Model:     "sonnet",
+		CreatedAt: time.Date(2025, 1, 2, 15, 4, 0, 0, time.UTC),
+	}
+	item := sessionItem{session: session}
+
+	desc := item.Description()
+
+	if !strings.Contains(desc, "claude") {
+		t.Errorf("description should contain provider %q, got %q", "claude", desc)
+	}
+	if !strings.Contains(desc, "sonnet") {
+		t.Errorf("description should contain model %q, got %q", "sonnet", desc)
+	}
+	if strings.Contains(desc, "claude |  |") || strings.Contains(desc, "|  | Jan") {
+		t.Errorf("description should not have a blank middle (model) field, got %q", desc)
 	}
 }

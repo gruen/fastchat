@@ -29,6 +29,9 @@ type Provider interface {
 
 	// Name returns the provider name from config.
 	Name() string
+
+	// Model returns the model identifier configured for this provider.
+	Model() string
 }
 
 // BuildProviders creates Provider instances from config.

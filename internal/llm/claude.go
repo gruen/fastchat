@@ -23,6 +23,10 @@ func (p *claudeProvider) Name() string {
 	return p.name
 }
 
+func (p *claudeProvider) Model() string {
+	return p.model
+}
+
 func (p *claudeProvider) Stream(ctx context.Context, messages []ChatMessage) (<-chan StreamChunk, error) {
 	// Build request body
 	reqBody := map[string]interface{}{

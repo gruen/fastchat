@@ -13,7 +13,8 @@ import (
 
 // fakeProvider is a stub llm.Provider used only for testing provider binding.
 type fakeProvider struct {
-	name string
+	name  string
+	model string
 }
 
 func (f *fakeProvider) Stream(ctx context.Context, messages []llm.ChatMessage) (<-chan llm.StreamChunk, error) {
@@ -21,6 +22,8 @@ func (f *fakeProvider) Stream(ctx context.Context, messages []llm.ChatMessage) (
 }
 
 func (f *fakeProvider) Name() string { return f.name }
+
+func (f *fakeProvider) Model() string { return f.model }
 
 // Helper function to create a minimal test config
 func testConfig() *config.Config {
