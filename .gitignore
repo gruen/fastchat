@@ -17,3 +17,7 @@ vendor/
 # Go workspace file
 go.work
 go.work.sum
+.kata.local.toml
+
+# Retired: bd (beads) issue tracker. Daemon may still rewrite these locally.
+.beads/
