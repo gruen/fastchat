@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mg/ai-tui/internal/db"
 	"github.com/mg/ai-tui/internal/llm"
@@ -41,6 +42,69 @@ type Model struct {
 	err       error
 	width     int
 	height    int
+	// renderer is the cached glamour renderer used to render assistant
+	// markdown. It is recreated only when the viewport width changes
+	// (renderW tracks the width it was built for).
+	renderer *glamour.TermRenderer
+	renderW  int
+}
+
+// newMarkdownRenderer builds a glamour term renderer configured for word
+// wrap at the given width using a stable dark style. The dark style keeps
+// glamour's default TrueColor color profile, so output contains ANSI escape
+// sequences even outside a TTY (important for deterministic tests). Returns
+// nil if the renderer cannot be constructed; callers fall back to raw text.
+func newMarkdownRenderer(width int) *glamour.TermRenderer {
+	if width <= 0 {
+		width = 80
+	}
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle("dark"),
+		glamour.WithWordWrap(width),
+	)
+	if err != nil {
+		return nil
+	}
+	return r
+}
+
+// renderString renders content through r. On any error (or a nil renderer)
+// it returns the raw content unchanged so a glamour failure never blanks
+// the conversation view. A trailing newline is trimmed so the rendered
+// block fits cleanly between the "Assistant:" label and the next message.
+func renderString(r *glamour.TermRenderer, content string) string {
+	if r == nil {
+		return content
+	}
+	out, err := r.Render(content)
+	if err != nil {
+		return content
+	}
+	return strings.TrimRight(out, "\n")
+}
+
+// renderMarkdown is a unit-testable helper that renders markdown content
+// through glamour with word wrap at the given width. The Model caches its
+// renderer (see Model.renderAssistant) and reuses the same underlying
+// newMarkdownRenderer/renderString machinery from updateViewport and the
+// streaming render path.
+func renderMarkdown(content string, width int) string {
+	return renderString(newMarkdownRenderer(width), content)
+}
+
+// renderAssistant renders assistant markdown through the Model's cached
+// glamour renderer, recreating the renderer only when the viewport width
+// changes so resize reflows existing output.
+func (m *Model) renderAssistant(content string) string {
+	w := m.viewport.Width
+	if w <= 0 {
+		w = 80
+	}
+	if m.renderer == nil || m.renderW != w {
+		m.renderer = newMarkdownRenderer(w)
+		m.renderW = w
+	}
+	return renderString(m.renderer, content)
 }
 
 // New creates a new compose view model.
@@ -124,6 +188,9 @@ func (m *Model) SetSize(w, h int) {
 	m.viewport.Height = vpHeight
 	m.textarea.SetWidth(w)
 	m.textarea.SetHeight(taHeight)
+	// Re-render existing messages so rendered markdown reflows to the new
+	// viewport width (the cached glamour renderer is recreated on demand).
+	m.updateViewport()
 }
 
 // Init returns the initial command.
@@ -265,14 +332,14 @@ func (m *Model) updateViewport() {
 		case "assistant":
 			sb.WriteString(assistantStyle.Render("Assistant:"))
 			sb.WriteString("\n")
-			sb.WriteString(msg.Content)
+			sb.WriteString(m.renderAssistant(msg.Content))
 			sb.WriteString("\n\n")
 		}
 	}
 	if m.streaming && m.streamBuf.Len() > 0 {
 		sb.WriteString(assistantStyle.Render("Assistant:"))
 		sb.WriteString("\n")
-		sb.WriteString(m.streamBuf.String())
+		sb.WriteString(m.renderAssistant(m.streamBuf.String()))
 		sb.WriteString("\n")
 	}
 	if m.err != nil {
