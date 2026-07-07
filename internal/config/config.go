@@ -17,11 +17,12 @@ type Config struct {
 }
 
 type Provider struct {
-	APIKey       string `toml:"api_key"`
-	BaseURL      string `toml:"base_url"`
-	Model        string `toml:"model"`
-	SystemPrompt string `toml:"system_prompt"`
-	MaxTokens    int    `toml:"max_tokens"`
+	APIKey       string   `toml:"api_key"`
+	BaseURL      string   `toml:"base_url"`
+	Model        string   `toml:"model"`
+	Models       []string `toml:"models"`
+	SystemPrompt string   `toml:"system_prompt"`
+	MaxTokens    int      `toml:"max_tokens"`
 }
 
 type Storage struct {
@@ -67,12 +68,20 @@ func Load(path string) (*Config, error) {
 }
 
 func applyDefaults(cfg *Config) {
-	// Apply MaxTokens default
+	// Apply MaxTokens default and normalize the Model/Models fields so both
+	// are populated whenever at least one was given (backward compatible with
+	// configs that only set `model`, and forward compatible with configs that
+	// only set `models`).
 	for name, provider := range cfg.Providers {
 		if provider.MaxTokens == 0 {
 			provider.MaxTokens = 4096
-			cfg.Providers[name] = provider
 		}
+		if len(provider.Models) == 0 && provider.Model != "" {
+			provider.Models = []string{provider.Model}
+		} else if provider.Model == "" && len(provider.Models) > 0 {
+			provider.Model = provider.Models[0]
+		}
+		cfg.Providers[name] = provider
 	}
 
 	// Apply MaxWidth default
@@ -143,6 +152,13 @@ func validate(cfg *Config) error {
 
 	if _, ok := cfg.Providers[cfg.DefaultProvider]; !ok {
 		return fmt.Errorf("default_provider '%s' not found in providers", cfg.DefaultProvider)
+	}
+
+	// Each provider must have at least one model (either `model` or `models`).
+	for name, provider := range cfg.Providers {
+		if len(provider.Model) == 0 && len(provider.Models) == 0 {
+			return fmt.Errorf("provider %q must have at least one model", name)
+		}
 	}
 
 	return nil

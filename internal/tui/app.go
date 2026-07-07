@@ -83,8 +83,12 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case history.ResumeSessionMsg:
 		// Bind compose to the session's ORIGINAL provider (not the currently
-		// active one) so follow-up messages use the same backend.
+		// active one) so follow-up messages use the same backend. Scope the
+		// provider to the session's model so a session created with a model
+		// override keeps using that model on follow-ups. A blank Model is a
+		// harmless no-op copy.
 		if p, ok := m.providers[msg.Session.Provider]; ok {
+			p = p.WithModel(msg.Session.Model)
 			m.compose.SetProvider(p)
 			m.SetActiveProvider(msg.Session.Provider)
 		}
@@ -97,7 +101,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case selector.ModelSelectedMsg:
 		m.activeProvider = msg.ProviderName
 		m.activeView = ComposeView
-		m.compose = compose.New(m.db, m.providers[m.activeProvider])
+		// Scope the provider to the selected model so the created session's
+		// Model (set from provider.Model() in createSessionCmd) and the API
+		// request body both use the chosen model, not the provider's default.
+		p := m.providers[msg.ProviderName].WithModel(msg.ModelName)
+		m.compose = compose.New(m.db, p)
 		m.compose.SetProgram(m.program)
 		m.compose.SetSize(m.width, m.height-2)
 		return m, nil
@@ -179,8 +187,10 @@ func (m AppModel) View() string {
 		content := m.selector.View()
 		providerName := m.activeProvider
 		modelName := ""
-		if provider, ok := m.cfg.Providers[providerName]; ok {
-			modelName = provider.Model
+		// Derive the model from the compose's actually-bound provider so the
+		// status bar reflects a WithModel override, not the configured model.
+		if p := m.compose.Provider(); p != nil {
+			modelName = p.Model()
 		}
 		statusBar := StatusBarStyle.Render(fmt.Sprintf("%s > %s", providerName, modelName))
 		helpBar := HelpBarStyle.Render("/ filter  enter select  esc close")
@@ -195,11 +205,13 @@ func (m AppModel) View() string {
 		content = m.history.View()
 	}
 
-	// Build status bar with active provider and model
+	// Build status bar with active provider and model. Derive the model
+	// from the compose's actually-bound provider so a WithModel override
+	// (e.g. from the model selector) is reflected, not the configured model.
 	providerName := m.activeProvider
 	modelName := ""
-	if provider, ok := m.cfg.Providers[providerName]; ok {
-		modelName = provider.Model
+	if p := m.compose.Provider(); p != nil {
+		modelName = p.Model()
 	}
 	statusBar := StatusBarStyle.Render(fmt.Sprintf("%s > %s", providerName, modelName))
 

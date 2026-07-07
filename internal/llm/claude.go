@@ -27,6 +27,14 @@ func (p *claudeProvider) Model() string {
 	return p.model
 }
 
+// WithModel returns a shallow copy of the receiver scoped to the given
+// model. All other fields are preserved; the receiver is not mutated.
+func (p *claudeProvider) WithModel(model string) Provider {
+	cp := *p
+	cp.model = model
+	return &cp
+}
+
 func (p *claudeProvider) Stream(ctx context.Context, messages []ChatMessage) (<-chan StreamChunk, error) {
 	// Build request body
 	reqBody := map[string]interface{}{

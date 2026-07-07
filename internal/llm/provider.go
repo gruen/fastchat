@@ -32,6 +32,11 @@ type Provider interface {
 
 	// Model returns the model identifier configured for this provider.
 	Model() string
+
+	// WithModel returns a copy of this provider scoped to the given model.
+	// The receiver is not mutated; the returned provider uses the new model
+	// for subsequent requests and Model() calls.
+	WithModel(model string) Provider
 }
 
 // BuildProviders creates Provider instances from config.

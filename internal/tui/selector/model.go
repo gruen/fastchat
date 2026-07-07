@@ -49,14 +49,26 @@ func New(providers map[string]config.Provider) Model {
 	}
 	sort.Strings(names)
 
-	// Build list items
+	// Build list items: one entry per (provider, model) pair. Use the
+	// normalized Models list when present, falling back to the single Model
+	// field for backward compatibility.
 	items := make([]list.Item, 0, len(providers))
 	for _, name := range names {
 		provider := providers[name]
-		items = append(items, ModelItem{
-			ProviderName: name,
-			ModelName:    provider.Model,
-		})
+		models := provider.Models
+		if len(models) == 0 {
+			models = []string{provider.Model}
+		}
+		// Sort each provider's models alphabetically for deterministic order.
+		sortedModels := make([]string, len(models))
+		copy(sortedModels, models)
+		sort.Strings(sortedModels)
+		for _, model := range sortedModels {
+			items = append(items, ModelItem{
+				ProviderName: name,
+				ModelName:    model,
+			})
+		}
 	}
 
 	// Create list

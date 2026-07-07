@@ -10,7 +10,12 @@ max_tokens = 4096
 [providers.openai]
 api_key = "$OPENAI_API_KEY"
 base_url = "https://api.openai.com/v1"
+# `model` is the default. `models` (optional) lists every model this
+# provider can serve; the model selector (Ctrl+M) shows one entry per
+# (provider, model) pair. If `models` is omitted, it is derived from `model`.
+# If `model` is omitted, it is derived from `models[0]`.
 model = "gpt-4o"
+models = ["gpt-4o", "gpt-4o-mini"]
 system_prompt = "You are a helpful assistant. Be concise."
 max_tokens = 4096
 

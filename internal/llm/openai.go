@@ -27,6 +27,14 @@ func (p *openaiProvider) Model() string {
 	return p.model
 }
 
+// WithModel returns a shallow copy of the receiver scoped to the given
+// model. All other fields are preserved; the receiver is not mutated.
+func (p *openaiProvider) WithModel(model string) Provider {
+	cp := *p
+	cp.model = model
+	return &cp
+}
+
 func (p *openaiProvider) Stream(ctx context.Context, messages []ChatMessage) (<-chan StreamChunk, error) {
 	// Build the request body
 	reqMessages := make([]ChatMessage, 0, len(messages)+1)

@@ -23,6 +23,13 @@ func (s *stubProvider) Name() string { return s.name }
 
 func (s *stubProvider) Model() string { return s.model }
 
+// WithModel returns a copy of s scoped to the given model.
+func (s *stubProvider) WithModel(model string) llm.Provider {
+	cp := *s
+	cp.model = model
+	return &cp
+}
+
 // TestCreateSessionCmd_PersistsProviderModel proves that createSessionCmd sets
 // the Session.Model from provider.Model() (regression for the bug where Model
 // was left as the zero-value "").
